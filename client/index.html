@@ -1,164 +1,295 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Landmark Creator</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-        }
-        #map {
-            height: 500px;
-            width: 80%;
-            margin: auto;
-            border: 2px solid black;
-            border-radius: 8px;
-        }
-        #landmarkList {
-            margin-top: 10px;
-            text-align: left;
-            width: 80%;
-            margin: auto;
-        }
-        button {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Landmark Creator</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    #map {
+      height: 500px;
+      width: 80%;
+      margin: auto;
+      border: 2px solid black;
+      border-radius: 8px;
+    }
+    #landmarkList {
+      margin-top: 10px;
+      text-align: left;
+      width: 80%;
+      margin: auto;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
 <body>
 
-    <h2>Click on the Map to Add Landmarks</h2>
-    <div id="map"></div>
-    
-    <h3>Selected Landmarks</h3>
-    <ul id="landmarkList"></ul>
-    
-    <button onclick="sendLandmarks()">Add Notes</button>
-    <button onclick="markAsVisited()">Visited Landmarks</button>
-    <button onclick="sendLandmarks()">Create Visiting Plans</button>
-    
+<h2>Click on the Map to Add Landmarks</h2>
+<div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Initialize map
-        var map = L.map('map').setView([20, 0], 2); // Default global view
+<h3>Landmarks</h3>
+<ul id="landmarkList"></ul>
 
-        // Add OpenStreetMap tile layer
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+<button onclick="sendLandmarks()">Add Landmark</button>
+<button onclick="loadLandmarks()">View All Landmarks</button>
+<button onclick="viewVisitedLandmarks()">Visited Landmarks</button>
+<button onclick="createVisitingPlan()">Create Visiting Plan</button>
+<button onclick="viewPlans()">View All Visiting Plans</button>
 
-        let landmarks = []; // Store landmarks
 
-        // Add landmark on map click
-        map.on('click', function(e) {
-            var lat = e.latlng.lat.toFixed(6);
-            var lng = e.latlng.lng.toFixed(6);
-            
-            // Create marker
-            var marker = L.marker([lat, lng]).addTo(map)
-                .bindPopup(`Lat: ${lat}, Lng: ${lng}`)
-                .openPopup();
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  var map = L.map('map').setView([20, 0], 2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-            // Store landmark data
-            landmarks.push({ latitude: lat, longitude: lng });
-            updateLandmarkList();
+  let landmarks = [];
+
+  map.on('click', function(e) {
+    var lat = e.latlng.lat.toFixed(6);
+    var lng = e.latlng.lng.toFixed(6);
+    var marker = L.marker([lat, lng]).addTo(map)
+      .bindPopup(`Lat: ${lat}, Lng: ${lng}`)
+      .openPopup();
+    landmarks.push({ latitude: lat, longitude: lng });
+    updateLandmarkList();
+  });
+
+  function updateLandmarkList() {
+    let list = document.getElementById('landmarkList');
+    list.innerHTML = "";
+    landmarks.forEach((point, index) => {
+      let li = document.createElement('li');
+      li.textContent = `Landmark ${index + 1}: Lat ${point.latitude}, Lng ${point.longitude}`;
+      list.appendChild(li);
+    });
+  }
+
+  function sendLandmarks() {
+    if (landmarks.length === 0) {
+      alert("No landmarks selected!");
+      return;
+    }
+
+    const name = prompt("Enter landmark name:");
+    const description = prompt("Enter description:");
+    const category = prompt("Enter category (historical, natural, cultural, other):");
+    const last = landmarks[landmarks.length - 1];
+
+    fetch('http://localhost:5000/api/landmarks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        location: {
+          latitude: parseFloat(last.latitude),
+          longitude: parseFloat(last.longitude)
+        },
+        description,
+        category
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      alert("Landmark saved:\n" + JSON.stringify(data, null, 2));
+      loadLandmarks();
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  window.onload = loadLandmarks;
+
+  function loadLandmarks() {
+    fetch('http://localhost:5000/api/landmarks')
+      .then(res => res.json())
+      .then(data => {
+        const list = document.getElementById('landmarkList');
+        list.innerHTML = "";
+        data.forEach((landmark, index) => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <strong>${index + 1}) ${landmark.name}</strong>
+            <br>Kategori: ${landmark.category}
+            <br>Açıklama: ${landmark.description}
+            <br>Konum: Lat ${landmark.location.latitude}, Lng ${landmark.location.longitude}
+            <br>
+            <button onclick="markAsVisitedFromList('${landmark._id}')">Ziyaret Ettim</button>
+            <button onclick="editLandmark('${landmark._id}')">Düzenle</button>
+            <button onclick="deleteLandmark('${landmark._id}')">Sil</button>
+            <hr>
+          `;
+          list.appendChild(li);
         });
+      })
+      .catch(error => console.error('Error loading landmarks:', error));
+  }
 
-        // Update landmark list in UI
-        function updateLandmarkList() {
-            let list = document.getElementById('landmarkList');
-            list.innerHTML = "";
-            landmarks.forEach((point, index) => {
-                let li = document.createElement('li');
-                li.textContent = `Landmark ${index + 1}: Lat ${point.latitude}, Lng ${point.longitude}`;
-                list.appendChild(li);
+  function deleteLandmark(id) {
+    if (!confirm("Silmek istediğinize emin misiniz?")) return;
+    fetch(`http://localhost:5000/api/landmarks/${id}`, {
+      method: 'DELETE'
+    })
+    .then(res => {
+      if (res.ok) {
+        alert("Landmark silindi.");
+        loadLandmarks();
+      } else {
+        alert("Silme başarısız.");
+      }
+    })
+    .catch(error => console.error('Silme hatası:', error));
+  }
+
+  function editLandmark(id) {
+    const name = prompt("Yeni ad:");
+    const description = prompt("Yeni açıklama:");
+    const category = prompt("Yeni kategori:");
+
+    fetch(`http://localhost:5000/api/landmarks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+        ...(name && { name }),
+        ...(description && { description }),
+        ...(category && { category })
+        })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Güncelleme başarısız");
+        return res.json();
+    })
+    .then(data => {
+        alert("Landmark güncellendi.");
+        loadLandmarks();
+    })
+    .catch(error => {
+        console.error('Güncelleme hatası:', error);
+        alert("Bir hata oluştu: " + error.message);
+    });
+    }
+
+
+    function viewVisitedLandmarks() {
+    fetch('http://localhost:5000/api/visited')
+      .then(res => res.json())
+      .then(data => {
+        const list = document.getElementById('landmarkList');
+        list.innerHTML = "<h4>Ziyaret Edilen Yerler</h4>";
+        if (data.length === 0) {
+          list.innerHTML += "<p>Henüz ziyaret edilmiş yer yok.</p>";
+          return;
+        }
+        data.forEach((visit, index) => {
+          const landmark = visit.landmark_id;
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <strong>${index + 1}) ${landmark.name}</strong>
+            <br>Kategori: ${landmark.category}
+            <br>Ziyaret Eden: ${visit.visitor_name}
+            <br>Ziyaret Tarihi: ${new Date(visit.visited_date).toLocaleDateString()}
+            <hr>
+          `;
+          list.appendChild(li);
+        });
+      })
+      .catch(err => console.error("Ziyaretli veriler yüklenirken hata:", err));
+  }
+
+    function markAsVisitedFromList(landmarkId) {
+    const visitor = prompt("Adınızı girin:");
+    if (!visitor) return;
+    fetch('http://localhost:5000/api/visited', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        landmark_id: landmarkId,
+        visitor_name: visitor,
+        visited_date: new Date()
+      })
+    })
+    .then(res => res.json())
+    .then(data => alert("Ziyaret başarıyla kaydedildi:\n" + JSON.stringify(data, null, 2)))
+    .catch(err => console.error('Error:', err));
+  }
+    function createVisitingPlan() {
+    if (landmarks.length === 0) {
+        alert("Plan yapılacak yer seçmediniz!");
+        return;
+    }
+
+    const title = prompt("Plan başlığı girin:");
+    if (!title) return;
+
+    const places = landmarks.map((point, i) => {
+        const name = prompt(`Yer ${i + 1} için bir isim girin:`);
+    const note = prompt(`Yer ${i + 1} için not girin:`);
+    return {
+      name,
+      note,
+      location: {
+        latitude: parseFloat(point.latitude),
+        longitude: parseFloat(point.longitude)
+      }
+    };
+  });
+
+  fetch('http://localhost:5000/api/plans', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, places })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert("Ziyaret planı kaydedildi:\n" + JSON.stringify(data, null, 2));
+    landmarks = []; // Seçilen yerleri sıfırla
+    updateLandmarkList();
+  })
+  .catch(error => console.error('Plan kaydedilirken hata:', error));
+}
+    function viewPlans() {
+    fetch('http://localhost:5000/api/plans')
+        .then(res => res.json())
+        .then(plans => {
+        const list = document.getElementById('landmarkList');
+        list.innerHTML = "<h4>Tüm Ziyaret Planları</h4>";
+
+        if (plans.length === 0) {
+            list.innerHTML += "<p>Henüz bir plan yok.</p>";
+            return;
+        }
+
+        plans.forEach((plan, i) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${i + 1}) ${plan.title}</strong><br>`;
+            plan.places.forEach((place, j) => {
+            li.innerHTML += `&nbsp;&nbsp;${j + 1}. ${place.name} - Not: ${place.note}<br>`;
             });
-        }
-
-        // Send landmarks to backend
-        function sendLandmarks() {
-            if (landmarks.length === 0) {
-                alert("No landmarks selected!");
-                return;
-            }
-
-            const name = prompt("Enter landmark name:");
-            const description = prompt("Enter description:");
-            const category = prompt("Enter category (historical, natural, cultural, other):");
-            const last = landmarks[landmarks.length - 1];
-
-            fetch('http://localhost:5000/api/landmarks', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    name: name,
-                    location: {
-                        latitude: parseFloat(last.latitude),
-                        longitude: parseFloat(last.longitude)
-                    },
-                    description: description,
-                    category: category
-                })
-            })
-            .then(response => response.json())
-            .then(data => alert("Landmark saved:\n" + JSON.stringify(data, null, 2)))
-            .catch(error => console.error('Error:', error));
-        }
-        // Sayfa yüklendiğinde landmarkları getir
-        window.onload = loadLandmarks;
-
-        function loadLandmarks() {
-            fetch('http://localhost:5000/api/landmarks')
-                .then(res => res.json())
-                .then(data => {
-                    const list = document.getElementById('landmarkList');
-                    list.innerHTML = ""; // Temizle
-                    data.forEach((landmark, index) => {
-                        const li = document.createElement('li');
-                        li.textContent = `${index + 1}) ${landmark.name} - ${landmark.category} - ${landmark.description} (Lat: ${landmark.location.latitude}, Lng: ${landmark.location.longitude})`;
-                        list.appendChild(li);
-                    });
-                })
-                .catch(error => console.error('Error loading landmarks:', error));
-        }
-        function markAsVisited() {
-            const landmarkId = prompt("Enter the landmark ID (MongoDB ID):");
-            const visitor = prompt("Enter your name:");
-            const date = prompt("Enter visit date (YYYY-MM-DD):");
-
-            fetch('http://localhost:5000/api/visited', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    landmark_id: landmarkId,
-                    visitor_name: visitor,
-                    visited_date: new Date(date)
-                })
-            })
-            .then(res => res.json())
-            .then(data => alert("Visit recorded:\n" + JSON.stringify(data, null, 2)))
-            .catch(err => console.error('Error:', err));
-        }
+            li.innerHTML += "<hr>";
+            list.appendChild(li);
+        });
+        })
+        .catch(err => {
+        console.error('Planlar yüklenemedi:', err);
+        });
+    }
 
 
-    </script>
-
+</script>
 </body>
 </html>
