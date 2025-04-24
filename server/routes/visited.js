@@ -1,22 +1,21 @@
-// server/routes/landmarks.js
 const express = require('express');
 const router = express.Router();
-const Landmark = require('../models/Landmark');
+const Visited = require('../models/VisitedLandmarks');
 
 router.post('/', async (req, res) => {
     try {
-        const newLandmark = new Landmark(req.body);
-        const saved = await newLandmark.save();
+        const visit = new Visited(req.body);
+        const saved = await visit.save();
         res.status(201).json(saved);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
-// GET /api/landmarks
+
 router.get('/', async (req, res) => {
     try {
-        const landmarks = await Landmark.find();
-        res.status(200).json(landmarks);
+        const visits = await Visited.find().populate('landmark_id');
+        res.status(200).json(visits);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
